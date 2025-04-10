@@ -1,7 +1,8 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 import sqlite3
+from schemas import UserCreate, WorkoutResponse, WorkoutPlan
 
 app = FastAPI()
 
@@ -38,27 +39,14 @@ cursor.execute('''
 
 conn.commit()
 
-# Pydantic Model
-class User(BaseModel):
-    name: str
-    age: int
-    gender: str
-    weight: float
-    height: float
-    fitness_level: str
-    goal: str
-    equipment: str
-    workout_duration: int
-    health_constraints: Optional[str] = None
-
-# Root Endpoint
+# Home route
 @app.get("/")
 def home():
-    return {"message": "Workout Plan API is running!"}
+    return {"message": "🏋️‍♂️ Workout Plan API is running!"}
 
-# Store User Data
+# Store user input data
 @app.post("/store-user/")
-def store_user(user: User):
+def store_user(user: UserCreate):
     try:
         cursor.execute('''
             INSERT INTO users (name, age, gender, weight, height, fitness_level, goal, equipment, workout_duration, health_constraints)
@@ -69,32 +57,12 @@ def store_user(user: User):
             user.workout_duration, user.health_constraints
         ))
         conn.commit()
-        return {"message": "User data stored successfully"}
+        user_id = cursor.lastrowid
+        return {"message": "✅ User data stored successfully", "user_id": user_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# Get All Users
-@app.get("/users/")
-def get_users():
-    try:
-        cursor.execute("SELECT * FROM users")
-        users = cursor.fetchall()
-        if not users:
-            return {"message": "No users found"}
-        return {
-            "users": [
-                {
-                    "id": u[0], "name": u[1], "age": u[2], "gender": u[3],
-                    "weight": u[4], "height": u[5], "fitness_level": u[6],
-                    "goal": u[7], "equipment": u[8], "workout_duration": u[9],
-                    "health_constraints": u[10]
-                } for u in users
-            ]
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-# Sample Exercise Database
+# Sample Exercise DB
 exercise_db = {
     "weight_loss": ["Jumping Jacks", "Burpees", "Mountain Climbers", "High Knees"],
     "muscle_gain": ["Push-ups", "Pull-ups", "Squats", "Lunges"],
@@ -102,53 +70,48 @@ exercise_db = {
     "general_fitness": ["Walking", "Jogging", "Bodyweight Circuit"]
 }
 
-# Generate Workout Plan and Store It
-@app.post("/workout/")
-def generate_workout(user: User):
+# Workout request body
+class WorkoutRequest(BaseModel):
+    user_id: int
+
+# Generate workout plan for an existing user
+@app.post("/workout/", response_model=WorkoutResponse)
+def generate_workout(data: WorkoutRequest):
     try:
-        # Insert user
-        cursor.execute('''
-            INSERT INTO users (name, age, gender, weight, height, fitness_level, goal, equipment, workout_duration, health_constraints)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            user.name, user.age, user.gender, user.weight, user.height,
-            user.fitness_level, user.goal, user.equipment,
-            user.workout_duration, user.health_constraints
-        ))
-        conn.commit()
+        # Check if user exists
+        cursor.execute("SELECT name, workout_duration, goal FROM users WHERE id = ?", (data.user_id,))
+        user = cursor.fetchone()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
 
-        # Get user_id of the inserted user
-        user_id = cursor.lastrowid
+        user_name, duration, goal = user
+        goal_key = goal.lower().replace(" ", "_")
 
-        # Generate workout
-        goal = user.goal.lower().replace(" ", "_")
-        fitness_level = user.fitness_level.lower()
-        equipment = user.equipment.lower()
-        duration = user.workout_duration
-
-        base_plan = exercise_db.get(goal, exercise_db["general_fitness"])
+        # Use sample DB or default
+        base_plan = exercise_db.get(goal_key, exercise_db["general_fitness"])
         sets = max(1, duration // 10)
         workout_plan = [{"exercise": ex, "sets": sets} for ex in base_plan]
 
-        # Store workout in DB
+        # Save to workouts table
         for ex in workout_plan:
             cursor.execute('''
                 INSERT INTO workouts (user_id, exercise, sets)
                 VALUES (?, ?, ?)
-            ''', (user_id, ex["exercise"], ex["sets"]))
+            ''', (data.user_id, ex["exercise"], ex["sets"]))
         conn.commit()
 
         return {
-            "message": f"Workout plan for {user.name} ({goal.title()})",
+            "message": f"💪 Workout plan for {user_name} ({goal})",
             "plan": workout_plan
         }
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-# Retrieve Workout Plan by User ID
-@app.get("/workout/{user_id}")
+
+# Get workout by user ID
+@app.get("/workout/{user_id}", response_model=WorkoutResponse)
 def get_user_workout(user_id: int):
     try:
-        # Get user info
         cursor.execute("SELECT name, goal FROM users WHERE id = ?", (user_id,))
         user = cursor.fetchone()
         if not user:
@@ -156,18 +119,17 @@ def get_user_workout(user_id: int):
 
         user_name, goal = user
 
-        # Get user's workout plan
         cursor.execute("SELECT exercise, sets FROM workouts WHERE user_id = ?", (user_id,))
         workout_rows = cursor.fetchall()
-
         if not workout_rows:
-            return {"message": f"No workout found for user {user_name}"}
+            return {"message": f"No workout found for user {user_name}", "plan": []}
 
         workout_plan = [{"exercise": row[0], "sets": row[1]} for row in workout_rows]
 
         return {
-            "message": f"Workout plan for {user_name} ({goal})",
+            "message": f"🏋️ Workout plan for {user_name} ({goal})",
             "plan": workout_plan
         }
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
