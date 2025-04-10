@@ -3,4 +3,4 @@ services:
     name: workout-planner
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    startCommand: streamlit run app.py --server.port $PORT --server.address 0.0.0.0
