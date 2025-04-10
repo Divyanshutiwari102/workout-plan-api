@@ -1,7 +1,6 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import List, Optional
 
-# User schema for input
 class UserCreate(BaseModel):
     name: str
     age: int
@@ -14,11 +13,10 @@ class UserCreate(BaseModel):
     workout_duration: int
     health_constraints: Optional[str] = None
 
-# Workout Plan Output schema
+class WorkoutResponse(BaseModel):
+    message: str
+    plan: List[dict]
+
 class WorkoutPlan(BaseModel):
     exercise: str
     sets: int
-
-class WorkoutResponse(BaseModel):
-    message: str
-    plan: list[WorkoutPlan]
