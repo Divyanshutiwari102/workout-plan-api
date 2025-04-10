@@ -1,12 +1,31 @@
 import streamlit as st
 import sqlite3
 
-# Database setup
-conn = sqlite3.connect('workout.db', check_same_thread=False)
-c = conn.cursor()
-c.execute('''CREATE TABLE IF NOT EXISTS users 
-             (name TEXT, age INTEGER, gender TEXT, fitness_level TEXT, goal TEXT, plan TEXT)''')
-conn.commit()
+# Function to create or connect to the database
+def create_connection():
+    conn = sqlite3.connect('personalworkout.db')  # Connect to the new database
+    return conn
+
+# Function to create the 'users' table if it doesn't exist
+def create_table():
+    conn = create_connection()
+    c = conn.cursor()
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            age INTEGER,
+            gender TEXT,
+            fitness_level TEXT,
+            goal TEXT,
+            plan TEXT
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+# Initialize the table creation on app start
+create_table()
 
 # Workout plans database
 plans = {
@@ -45,8 +64,12 @@ if submit:
             st.success(exercise)
 
         # Save to database
+        conn = create_connection()
+        c = conn.cursor()
         c.execute("INSERT INTO users (name, age, gender, fitness_level, goal, plan) VALUES (?, ?, ?, ?, ?, ?)",
                   (name, age, gender, fitness_level, goal, ', '.join(plan)))
         conn.commit()
+        conn.close()
+
     else:
         st.warning("Please fill out all fields.")

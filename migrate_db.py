@@ -1,10 +1,13 @@
 import sqlite3
 
-# Connect to your SQLite database
-conn = sqlite3.connect('workout_plan.db')
+# Connect to your new SQLite database (this will create a new file if it doesn't exist)
+conn = sqlite3.connect('personalworkout.db')  # Use the new database name here
 c = conn.cursor()
 
-# Check if the 'users' table exists, and create it if it doesn't
+# Drop the users table if it exists
+c.execute("DROP TABLE IF EXISTS users")
+
+# Recreate the users table with the correct schema
 c.execute('''
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -17,16 +20,12 @@ c.execute('''
     )
 ''')
 
-# Add the 'plan' column if it doesn't exist
-try:
-    c.execute('ALTER TABLE users ADD COLUMN plan TEXT')
-except sqlite3.OperationalError:
-    print("Column 'plan' already exists, skipping column creation.")
+# Insert some initial data (optional)
+c.execute("INSERT INTO users (name, age, gender, fitness_level, goal, plan) VALUES (?, ?, ?, ?, ?, ?)", 
+          ('John Doe', 30, 'Male', 'Intermediate', 'Cardio', 'Running - 30 mins'))
 
-# Commit the changes
+# Commit the changes and close the connection
 conn.commit()
-
-# Close the connection
 conn.close()
 
-print("Database schema updated successfully!")
+print("New database 'personalworkout.db' created with 'plan' column!")
