@@ -1,6 +1,6 @@
 from fastapi.staticfiles import StaticFiles
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator
 from typing import Optional
 import sqlite3
 from contextlib import closing
@@ -49,20 +49,20 @@ class UserCreate(BaseModel):
     workout_duration: int
     health_constraints: Optional[str] = None
 
-    # Custom validation for fields
-    @validator('age')
+    # Custom validation for fields (updated for Pydantic V2)
+    @field_validator('age')
     def validate_age(cls, value):
         if value <= 0:
             raise ValueError('Age must be a positive integer')
         return value
 
-    @validator('workout_duration')
+    @field_validator('workout_duration')
     def validate_duration(cls, value):
         if value <= 0:
             raise ValueError('Workout duration must be a positive integer')
         return value
 
-    @validator('goal')
+    @field_validator('goal')
     def validate_goal(cls, value):
         allowed_goals = ['Muscle Gain', 'Weight Loss', 'Flexibility', 'General Fitness']
         if value not in allowed_goals:
@@ -211,4 +211,5 @@ def read_root():
 # Run the app with uvicorn if running as the main module
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    port = int(os.getenv("PORT", 8000))  # Get port from environment variable or default to 8000
+    uvicorn.run(app, host="0.0.0.0", port=port)
