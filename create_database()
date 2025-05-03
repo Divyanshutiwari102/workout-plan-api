@@ -1,0 +1,12 @@
+# database.py
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, declarative_base
+from models import Base  # This should include your User class
+
+DATABASE_URL = "sqlite:///workout.db"
+
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(bind=engine)
+
+def create_database():
+    Base.metadata.create_all(bind=engine)

@@ -1,13 +1,13 @@
 import sqlite3
 
-# Connect to your new SQLite database (this will create a new file if it doesn't exist)
-conn = sqlite3.connect('personalworkout.db')  # Use the new database name here
+# Connect to your new SQLite database
+conn = sqlite3.connect('personalworkout.db')
 c = conn.cursor()
 
 # Drop the users table if it exists
 c.execute("DROP TABLE IF EXISTS users")
 
-# Recreate the users table with the correct schema
+# Recreate the users table with the new schema including 'feedback'
 c.execute('''
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -16,16 +16,19 @@ c.execute('''
         gender TEXT,
         fitness_level TEXT,
         goal TEXT,
-        plan TEXT
+        plan TEXT,
+        feedback TEXT
     )
 ''')
 
-# Insert some initial data (optional)
-c.execute("INSERT INTO users (name, age, gender, fitness_level, goal, plan) VALUES (?, ?, ?, ?, ?, ?)", 
-          ('John Doe', 30, 'Male', 'Intermediate', 'Cardio', 'Running - 30 mins'))
+# Optional: Insert initial data with feedback
+c.execute('''
+    INSERT INTO users (name, age, gender, fitness_level, goal, plan, feedback) 
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+''', ('John Doe', 30, 'Male', 'Intermediate', 'Cardio', 'Running - 30 mins', 'Great workout'))
 
-# Commit the changes and close the connection
+# Commit and close
 conn.commit()
 conn.close()
 
-print("New database 'personalworkout.db' created with 'plan' column!")
+print("Database 'personalworkout.db' created with 'feedback' column!")

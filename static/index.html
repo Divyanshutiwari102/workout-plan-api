@@ -50,6 +50,10 @@
       border: 1px solid #ddd;
       border-radius: 5px;
     }
+    .loading {
+      text-align: center;
+      color: #888;
+    }
   </style>
 </head>
 <body>
@@ -76,6 +80,7 @@
     </form>
 
     <div id="result" class="result" style="display:none;"></div>
+    <div id="loading" class="loading" style="display:none;">Loading your workout plan...</div>
   </div>
 
   <script>
@@ -89,8 +94,17 @@
       // Prepare the data to send
       const formData = { fitnessLevel, goal };
 
+      // Show loading message
+      document.getElementById("loading").style.display = "block";
+      document.getElementById("result").style.display = "none";
+
+      // Determine base URL
+      const BASE_URL = window.location.hostname === "localhost"
+        ? "http://localhost:8000"
+        : "https://workout-plan-generator.onrender.com";
+
       // Send the request to the backend API
-      fetch("https://workout-plan-generator.onrender.com/workout", {
+      fetch(`${BASE_URL}/workout`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -99,6 +113,9 @@
       })
       .then(response => response.json())
       .then(data => {
+        // Hide loading message
+        document.getElementById("loading").style.display = "none";
+
         if (data && data.workoutPlan) {
           // Display the workout plan
           const resultDiv = document.getElementById("result");
@@ -117,6 +134,8 @@
         }
       })
       .catch(error => {
+        // Hide loading message
+        document.getElementById("loading").style.display = "none";
         console.error("Error fetching workout plan:", error);
         alert("There was an error fetching the workout plan. Please try again later.");
       });
