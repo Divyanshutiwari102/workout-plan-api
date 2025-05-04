@@ -6,6 +6,7 @@ from passlib.hash import bcrypt
 from fpdf import FPDF
 import base64
 import os
+import re
 
 # Create DB tables
 Base.metadata.create_all(bind=engine)
@@ -60,6 +61,10 @@ def get_workout_plan(goal, fitness_level):
     }
     return plans[goal][fitness_level]
 
+# Remove emojis for PDF compatibility
+def remove_emojis(text):
+    return re.sub(r'[^\x00-\x7F]+', '', text)
+
 # PDF generator
 def generate_pdf(user, plan):
     pdf = FPDF()
@@ -80,8 +85,10 @@ def generate_pdf(user, plan):
     pdf.cell(200, 10, txt=f"Fitness Level: {user.fitness_level}", ln=True)
     pdf.ln(10)
     pdf.cell(200, 10, txt="Workout Plan:", ln=True)
+
     for exercise in plan:
-        pdf.cell(200, 10, txt=f"- {exercise}", ln=True)
+        clean_text = remove_emojis(exercise)
+        pdf.cell(200, 10, txt=f"- {clean_text}", ln=True)
 
     file_path = os.path.join("/tmp", f"{user.username}_plan.pdf")
     pdf.output(file_path)
