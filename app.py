@@ -1,17 +1,14 @@
 import streamlit as st
 from sqlalchemy.orm import Session
-from database import SessionLocal
+from database import SessionLocal, Base, engine
 from models import User
 from passlib.hash import bcrypt
 from fpdf import FPDF
-# Make sure to import Base and engine
-from database import Base, engine
-
-# Automatically create all tables (only if they don't exist)
-Base.metadata.create_all(bind=engine)
-
 import base64
 import os
+
+# Create tables
+Base.metadata.create_all(bind=engine)
 
 # Password hashing
 def hash_password(password):
@@ -63,11 +60,18 @@ def get_workout_plan(goal, fitness_level):
     }
     return plans[goal][fitness_level]
 
-# PDF generation
+# PDF generator
 def generate_pdf(user, plan):
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_font("Arial", size=12)
+    # Use DejaVu font for emoji support (you must have the font available)
+    font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+    if os.path.exists(font_path):
+        pdf.add_font('DejaVu', '', font_path, uni=True)
+        pdf.set_font('DejaVu', '', 12)
+    else:
+        pdf.set_font("Arial", size=12)
+
     pdf.cell(200, 10, txt="Personalized Workout Plan", ln=True, align='C')
     pdf.ln(10)
     pdf.cell(200, 10, txt=f"Name: {user.name}", ln=True)
@@ -85,12 +89,12 @@ def generate_pdf(user, plan):
         base64_pdf = base64.b64encode(f.read()).decode('utf-8')
     return base64_pdf
 
-# Session defaults
+# Session init
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.user = None
 
-# Login/Register UI
+# Login/Register
 def login_register():
     st.title("🏋️ Personalized Workout App - Login/Register")
     tab1, tab2 = st.tabs(["🔐 Login", "📝 Register"])
@@ -129,7 +133,7 @@ def login_register():
                 save_user_to_db(name, age, gender, fitness_level, goal, plan, new_username, new_password)
                 st.success("Registration successful! Please log in.")
 
-# Main App
+# Main app
 st.title("🏋️ Personalized Workout Plan Generator")
 
 if not st.session_state.logged_in:
@@ -161,7 +165,7 @@ else:
         db.commit()
         st.success("Your workout plan has been saved!")
 
-        # Download PDF
+        # PDF Download
         base64_pdf = generate_pdf(user, plan)
         href = f'<a href="data:application/pdf;base64,{base64_pdf}" download="{user.username}_plan.pdf">📥 Download Workout Plan (PDF)</a>'
         st.markdown(href, unsafe_allow_html=True)
@@ -180,25 +184,3 @@ else:
         for u in users:
             st.markdown(f"**👤 {u.name}** | Age: {u.age} | Level: {u.fitness_level} | Goal: {u.goal}")
             st.success(f"Plan: {u.plan}")
-        # Generate and offer PDF download
-        def generate_pdf(plan, username):
-            pdf = FPDF()
-            pdf.add_page()
-            pdf.set_font("Arial", size=14)
-            pdf.cell(200, 10, txt=f"{username}'s Workout Plan", ln=True, align='C')
-            pdf.ln(10)
-            for exercise in plan:
-                pdf.cell(200, 10, txt=exercise, ln=True)
-            pdf_file = f"{username}_plan.pdf"
-            pdf.output(pdf_file)
-            return pdf_file
-
-        def download_button(file_path):
-            with open(file_path, "rb") as f:
-                base64_pdf = base64.b64encode(f.read()).decode('utf-8')
-            href = f'<a href="data:application/octet-stream;base64,{base64_pdf}" download="{file_path}">📥 Download Workout Plan (PDF)</a>'
-            st.markdown(href, unsafe_allow_html=True)
-
-        # Call the functions
-        pdf_file = generate_pdf(plan, user.username)
-        download_button(pdf_file)
