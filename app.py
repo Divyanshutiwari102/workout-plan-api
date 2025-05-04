@@ -106,7 +106,7 @@ def login_register():
                 st.success(f"Welcome, {user.name}!")
                 st.session_state.logged_in = True
                 st.session_state.user = user
-                st.experimental_rerun()
+                st.rerun()
             else:
                 st.error("Invalid username or password.")
 
@@ -171,7 +171,7 @@ else:
     if st.sidebar.button("🚪 Logout"):
         st.session_state.logged_in = False
         st.session_state.user = None
-        st.experimental_rerun()
+        st.rerun()
 
     if st.sidebar.button("📋 Show All Users"):
         db = next(get_db())
