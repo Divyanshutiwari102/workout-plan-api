@@ -4,6 +4,12 @@ from database import SessionLocal
 from models import User
 from passlib.hash import bcrypt
 from fpdf import FPDF
+# Make sure to import Base and engine
+from database import Base, engine
+
+# Automatically create all tables (only if they don't exist)
+Base.metadata.create_all(bind=engine)
+
 import base64
 import os
 
