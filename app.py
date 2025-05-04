@@ -7,17 +7,17 @@ from fpdf import FPDF
 import base64
 import os
 
-# Create tables
+# Create DB tables
 Base.metadata.create_all(bind=engine)
 
-# Password hashing
+# Password utilities
 def hash_password(password):
     return bcrypt.hash(password)
 
 def verify_password(password, hashed):
     return bcrypt.verify(password, hashed)
 
-# DB session
+# DB session context
 def get_db():
     db = SessionLocal()
     try:
@@ -25,26 +25,26 @@ def get_db():
     finally:
         db.close()
 
-# Save user
+# Save user to database
 def save_user_to_db(name, age, gender, fitness_level, goal, plan, username, password):
-    db = SessionLocal()
-    hashed_pw = hash_password(password)
-    user = User(
-        name=name,
-        age=age,
-        gender=gender,
-        fitness_level=fitness_level,
-        goal=goal,
-        plan=plan,
-        username=username,
-        password_hash=hashed_pw
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    return user
+    with next(get_db()) as db:
+        hashed_pw = hash_password(password)
+        user = User(
+            name=name.strip(),
+            age=age,
+            gender=gender,
+            fitness_level=fitness_level,
+            goal=goal,
+            plan=plan,
+            username=username.strip(),
+            password_hash=hashed_pw
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        return user
 
-# Workout plan generator
+# Workout plan logic
 def get_workout_plan(goal, fitness_level):
     plans = {
         'weight loss': {
@@ -64,7 +64,7 @@ def get_workout_plan(goal, fitness_level):
 def generate_pdf(user, plan):
     pdf = FPDF()
     pdf.add_page()
-    # Use DejaVu font for emoji support (you must have the font available)
+
     font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
     if os.path.exists(font_path):
         pdf.add_font('DejaVu', '', font_path, uni=True)
@@ -83,18 +83,20 @@ def generate_pdf(user, plan):
     for exercise in plan:
         pdf.cell(200, 10, txt=f"- {exercise}", ln=True)
 
-    file_path = f"/tmp/{user.username}_plan.pdf"
+    file_path = os.path.join("/tmp", f"{user.username}_plan.pdf")
     pdf.output(file_path)
+
     with open(file_path, "rb") as f:
         base64_pdf = base64.b64encode(f.read()).decode('utf-8')
+
     return base64_pdf
 
-# Session init
+# Session state init
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.user = None
 
-# Login/Register
+# Login/Register UI
 def login_register():
     st.title("🏋️ Personalized Workout App - Login/Register")
     tab1, tab2 = st.tabs(["🔐 Login", "📝 Register"])
@@ -104,15 +106,15 @@ def login_register():
         username = st.text_input("Username", key="login_user")
         password = st.text_input("Password", type="password", key="login_pass")
         if st.button("Login"):
-            db = next(get_db())
-            user = db.query(User).filter(User.username == username).first()
-            if user and verify_password(password, user.password_hash):
-                st.success(f"Welcome, {user.name}!")
-                st.session_state.logged_in = True
-                st.session_state.user = user
-                st.rerun()
-            else:
-                st.error("Invalid username or password.")
+            with next(get_db()) as db:
+                user = db.query(User).filter(User.username == username.strip()).first()
+                if user and verify_password(password, user.password_hash):
+                    st.success(f"Welcome, {user.name}!")
+                    st.session_state.logged_in = True
+                    st.session_state.user = user
+                    st.rerun()
+                else:
+                    st.error("Invalid username or password.")
 
     with tab2:
         st.subheader("Register")
@@ -125,13 +127,12 @@ def login_register():
         goal = st.selectbox("Goal", ["weight loss", "muscle gain"])
 
         if st.button("Register"):
-            db = next(get_db())
-            if db.query(User).filter(User.username == new_username).first():
-                st.error("Username already taken.")
-            else:
-                plan = ""
-                save_user_to_db(name, age, gender, fitness_level, goal, plan, new_username, new_password)
-                st.success("Registration successful! Please log in.")
+            with next(get_db()) as db:
+                if db.query(User).filter(User.username == new_username.strip()).first():
+                    st.error("Username already taken.")
+                else:
+                    save_user_to_db(name, age, gender, fitness_level, goal, "", new_username, new_password)
+                    st.success("Registration successful! Please log in.")
 
 # Main app
 st.title("🏋️ Personalized Workout Plan Generator")
@@ -156,14 +157,15 @@ else:
             st.success(exercise)
 
         # Update DB
-        db = next(get_db())
-        user.age = age
-        user.gender = gender
-        user.fitness_level = fitness_level
-        user.goal = goal
-        user.plan = ', '.join(plan)
-        db.commit()
-        st.success("Your workout plan has been saved!")
+        with next(get_db()) as db:
+            user.age = age
+            user.gender = gender
+            user.fitness_level = fitness_level
+            user.goal = goal
+            user.plan = ', '.join(plan)
+            db.merge(user)
+            db.commit()
+            st.success("Your workout plan has been saved!")
 
         # PDF Download
         base64_pdf = generate_pdf(user, plan)
@@ -178,9 +180,9 @@ else:
         st.rerun()
 
     if st.sidebar.button("📋 Show All Users"):
-        db = next(get_db())
-        users = db.query(User).all()
-        st.subheader("🗃️ Stored Workout Plans")
-        for u in users:
-            st.markdown(f"**👤 {u.name}** | Age: {u.age} | Level: {u.fitness_level} | Goal: {u.goal}")
-            st.success(f"Plan: {u.plan}")
+        with next(get_db()) as db:
+            users = db.query(User).all()
+            st.subheader("🗃️ Stored Workout Plans")
+            for u in users:
+                st.markdown(f"**👤 {u.name}** | Age: {u.age} | Level: {u.fitness_level} | Goal: {u.goal}")
+                st.success(f"Plan: {u.plan}")
